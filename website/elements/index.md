@@ -109,7 +109,6 @@ and take their look from the app.
 | `<Radio>`, `<RadioGroup>` | `nsh_base::radio()`, `radio_group()` | One option of a set the user picks one of, and the set | [Radio](./radio.md) |
 | `<Tab>`, `<Tabs>` | `nsh_base::tab()`, `tabs()` | One tab of a tab list, and the list | [Tabs](./tabs.md) |
 | `<Switch>` | `nsh_base::switch()` | An on / off control with a track and a thumb | [Switch](./switch.md) |
-| `<Select>` | `nsh_base::select()` | One value chosen from a list of items, with the keyboard, search and sections | [Select](./select.md) |
 | `<Collapsible>` | `nsh_base::collapsible()` | A region whose content expands and collapses | [Collapsible](./collapsible.md) |
 | `<Progress>` | `nsh_base::progress()` | A progress bar: how far a task is, or that it is under way | [Progress](./progress.md) |
 | `<NumberInput>` | `nsh_base::number_input()` | A number typed in a field or stepped with buttons and keys | [NumberInput](./number-input.md) |
@@ -157,12 +156,16 @@ only hears about it afterwards. Only the innermost pressable view responds; insi
 
 | Prop | Rust | Type | Default | Description |
 |---|---|---|---|---|
-| `onPress` | `.on_press(..)` | `() => void` | | A tap ended inside the view. |
-| `onLongPress` | `.on_long_press(..)` | `() => void` | | The finger stayed down for `delayLongPress`. |
-| `onPressDown` | `.on_press_down(..)` | `() => void` | | A finger went down on the view. |
-| `onPressUp` | `.on_press_up(..)` | `() => void` | | The finger lifted or left. |
+| `onPress` | `.on_press(..)` | `(e: PressEvent) => void` | | A tap ended inside the view. |
+| `onLongPress` | `.on_long_press(..)` | `(e: PressEvent) => void` | | The finger stayed down for `delayLongPress`. |
+| `onPressDown` | `.on_press_down(..)` | `(e: PressEvent) => void` | | A finger went down on the view. |
+| `onPressUp` | `.on_press_up(..)` | `(e: PressEvent) => void` | | The finger lifted or left. |
 | `delayLongPress` | `.long_press_delay(ms)` | `number` | `500` | Milliseconds before a press becomes a long press. |
 | `hitSlop` | `.hit_slop(EdgeInsets::all(px(8.0)))` | `number \| Partial<Edges>` | | Extends the touch area beyond the bounds, in points. |
+
+`PressEvent` is `{ position, pagePosition, modifiers, clickCount }`: where the pointer was in the view and in its root
+view (`Point`s), the modifier keys held when the press began and the consecutive clicks (2 for a double click). Where
+the platform reports no pointer, it is the view's origin with no keys and one click.
 
 The style key `pointerEvents` (`.pointer_events(PointerEvents::BoxNone)` in Rust, the classes `pointer-events-*`)
 decides which touches the view and the views in it receive: `"none"` neither (a view inside that sets `"auto"` takes
@@ -401,7 +404,7 @@ view().on_press(open_page).child(
 
 | Prop | Rust | Type | Description |
 |---|---|---|---|
-| `onLayout` | `.on_layout(\|frame: &Bounds<Points>\| ..)` | `(bounds: Bounds) => void` | The view's frame relative to its parent, `{ origin, size }`, after each layout that changes it. |
+| `onLayout` | `.on_layout(\|frame: &Bounds<Points>\| ..)` | `(e: { bounds: Bounds }) => void` | `bounds` is the view's frame relative to its parent, `{ origin, size }`, after each layout that changes it. |
 | `ref` | `.element_ref(&handle)` | `YNode \| (node: YNode) => void` | The native node (see [ref methods](#ref-methods)). `ref={el}` assigns a variable, `ref={fn}` calls a function. |
 | `nativeID` | `.native_id(id)` | `string` | Names the view for others, e.g. the `InputAccessoryView` an input refers to. |
 | `testID` | `.test_id(id)` | `string` | An identifier for UI tests (on Android, the view's resource id). |
@@ -422,9 +425,10 @@ work in the app's code per frame. See [touch and gestures](../docs/touch-and-ges
 | `rotation` | `.rotation_value(&angle)` | `{ angle?: AnimatedValue }` | Two-finger rotations drive `angle` (degrees). |
 | `onRotationStart` / `onRotationEnd` | `.on_rotation_start(..)` / `.on_rotation_end(..)` | `(e: { rotation: number; velocity: number }) => void` | A rotation started / ended. |
 
-`PanEvent` is `{ translationX, translationY, velocityX, velocityY, valueX?, valueY? }` (in Rust `translation`,
-`velocity_x`, `velocity_y`, `value_x`, `value_y`): the translation since the start, the velocity in points per second,
-and the bound values at that moment (a drag can grab a value mid-animation).
+`PanEvent` is `{ cancelled, translation, velocity, value? }` (in Rust `cancelled`, `translation`, `velocity_x`,
+`velocity_y`, `value_x`, `value_y`): whether the system cancelled the drag, the translation since the start and the
+velocity in points per second (`Point`s), and the bound values at that moment, `{ x?, y? }` for the axes `pan` binds
+(a drag can grab a value mid-animation).
 
 ### Raw touches and the responder system
 

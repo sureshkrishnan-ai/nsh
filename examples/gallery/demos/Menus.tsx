@@ -159,7 +159,7 @@ type File = { id: number; name: string; starred: boolean };
 export function Menus() {
   const events = signal<string[]>([]);
   const log = (what: string) => events.set([what, ...events()].slice(0, 6));
-  const changed = (menu: string) => (open: boolean, reason: OpenChangeReason) => log(`${menu} ${open ? "opened" : "closed"} · ${reason}`);
+  const changed = (menu: string) => ({ open, reason }: { open: boolean; reason: OpenChangeReason }) => log(`${menu} ${open ? "opened" : "closed"} · ${reason}`);
 
   function MenuBar() {
     const history = signal<string[]>([]);
@@ -355,7 +355,7 @@ export function Menus() {
       <Card icon="spark" title="Opened by the app" subtitle="A controlled menu: a button or a shortcut opens it" right={platform.idiom === "desktop" ? <Badge label={keymap.label("mod+shift+p")} /> : undefined}>
         <Menu
           open={open()}
-          onOpenChange={(next, reason) => {
+          onOpenChange={({ open: next, reason }) => {
             open.set(next);
             log(`commands ${next ? "opened" : "closed"} · ${reason}`);
           }}

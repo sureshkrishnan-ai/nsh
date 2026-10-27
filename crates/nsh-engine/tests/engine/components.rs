@@ -1390,7 +1390,7 @@ import { TextField } from "test/ui";
 const name = signal("Ada");
 mount(() => (
   <View>
-    <TextField value={name()} onChange={(v: string) => name.set(v)} />
+    <TextField value={name()} onChange={({ value }: { value: string }) => name.set(value)} />
     <Text>{`name ${name()}`}</Text>
   </View>
 ));
@@ -1706,7 +1706,7 @@ function App() {
         testID="wifi"
         checked={on()}
         checkedStyle={{ backgroundColor: "#0000ff" }}
-        onChange={(next) => {
+        onChange={({ checked: next }) => {
           changes.set([...changes(), next]);
           on.set(next);
         }}
@@ -1718,7 +1718,7 @@ function App() {
         testID="locked"
         checked
         accessibilityLabel="Locked"
-        onChange={(next) => changes.set([...changes(), next])}
+        onChange={({ checked: next }) => changes.set([...changes(), next])}
         {...parts}
       />
       <Switch testID="off" checked disabled {...parts} />
@@ -1877,7 +1877,7 @@ function App() {
         indeterminate={some() && !all()}
         checkedStyle={{ backgroundColor: "#0000ff" }}
         indeterminateStyle={{ backgroundColor: "#ffff00" }}
-        onChange={(next) => {
+        onChange={({ checked: next }) => {
           changes.set([...changes(), next]);
           all.set(next);
         }}
@@ -1890,7 +1890,7 @@ function App() {
         testID="kept"
         checked
         accessibilityLabel="Kept"
-        onChange={(next) => changes.set([...changes(), next])}
+        onChange={({ checked: next }) => changes.set([...changes(), next])}
         {...parts}
       />
       <Checkbox testID="off" checked disabled role="menuitem" {...parts} />
@@ -2041,7 +2041,7 @@ function App() {
       accessibilityLabel={label}
       class="group flex-row disabled:opacity-50"
       checkedStyle={{ backgroundColor: "#0000ff" }}
-      onChange={(next) => {
+      onChange={({ checked: next }) => {
         changes.set([...changes(), `${value}:${next}`]);
         plan.set(value);
       }}
@@ -2387,7 +2387,7 @@ function App() {
       testID={value}
       checked={plan() === value}
       disabled={disabled}
-      onChange={(next) => {
+      onChange={({ checked: next }) => {
         say(`radio ${value}:${next}`);
         plan.set(value);
       }}
@@ -2909,7 +2909,7 @@ function App() {
   return (
     <View>
       <Menu
-        onOpenChange={(open, reason) => hear(`menu ${open} ${reason}`)}
+        onOpenChange={({ open, reason }) => hear(`menu ${open} ${reason}`)}
         onOpen={() => hear("menu open")}
         onClose={() => hear("menu close")}
         trigger={
@@ -2923,7 +2923,7 @@ function App() {
         </MenuItem>
       </Menu>
       <Popover
-        onOpenChange={(open, reason) => hear(`popover ${open} ${reason}`)}
+        onOpenChange={({ open, reason }) => hear(`popover ${open} ${reason}`)}
         onOpen={() => hear("popover open")}
         onClose={() => hear("popover close")}
         trigger={
@@ -3180,8 +3180,8 @@ function App() {
       <Slider
         testID="price"
         value={price()}
-        onChange={(next) => price.set(next as [number, number])}
-        onChangeEnd={(next) => ended.set(`end ${next}`)}
+        onChange={({ value: next }) => price.set(next as [number, number])}
+        onChangeEnd={({ value: next }) => ended.set(`end ${next}`)}
         accessibilityLabel="Maximum price"
         startAccessibilityLabel="Minimum price"
         class="w-[200px]"
@@ -3352,204 +3352,6 @@ fn a_base_slider_moves_the_nearer_thumb_and_tells_screen_readers_each_value() {
     assert!(after.iter().any(|b| shows(b, "Price 21-75")));
 }
 
-const BASE_SELECT: &str = r##"import { mount, signal, Text, View } from "nsh";
-import { Select } from "nsh/base";
-
-const items = [
-  { value: "apple", title: "Apple" },
-  { value: "rice", title: "Rice", group: "Grains" },
-  { value: "kale", title: "Kale", disabled: true },
-];
-
-function App() {
-  const value = signal<string | null>(null);
-  const changes = signal<string[]>([]);
-  return (
-    <View>
-      <Select
-        items={items}
-        value={value()}
-        onChange={(next) => {
-          changes.set([...changes(), next]);
-          value.set(next);
-        }}
-        accessibilityLabel="Controlled"
-        trigger={<View><Text>Pick</Text></View>}
-        renderItem={(item) => <Text>{`${item.title}${item.selected ? " chosen" : ""}!`}</Text>}
-        renderGroup={(group) => <Text>{`[${group.title}]`}</Text>}
-      />
-      <Select
-        items={items}
-        defaultValue="rice"
-        accessibilityLabel="Own"
-        trigger={<View><Text>Own</Text></View>}
-      />
-      <Text>{`Changes: ${changes().join(",")}`}</Text>
-    </View>
-  );
-}
-
-mount(App);
-"##;
-
-/// `nsh/base`'s `Select` through its JS face: `value={null}` is nothing
-/// chosen (the app's), a left-out `value` the select's own from
-/// `defaultValue`; the items' objects, the app's `renderItem` and
-/// `renderGroup`, and `onChange` with the chosen value.
-#[test]
-fn a_base_select_reads_null_as_nothing_chosen_and_renders_the_apps_rows() {
-    use nsh_core::{AccessibilityRole, ViewProps};
-    let (engine, rx) = start(BASE_SELECT);
-    let props = |batches: &[MountBatch], label: &str, role: AccessibilityRole| {
-        batches
-            .iter()
-            .rev()
-            .flat_map(|b| b.items.iter().rev())
-            .find_map(|i| match i {
-                MountItem::ViewProps { id, props }
-                    if props.accessibility.role == role
-                        && props.accessibility.label.as_deref() == Some(label) =>
-                {
-                    Some((*id, (**props).clone()))
-                }
-                _ => None,
-            })
-    };
-    let chosen = |p: &ViewProps| {
-        p.accessibility
-            .value
-            .as_ref()
-            .and_then(|v| v.text.as_deref().map(str::to_owned))
-    };
-    let (mut own, mut controlled) = (false, false);
-    let first = until(&rx, |b| {
-        let b = std::slice::from_ref(b);
-        own |= props(b, "Own", AccessibilityRole::Combobox).is_some();
-        controlled |= props(b, "Controlled", AccessibilityRole::Combobox).is_some();
-        own && controlled
-    });
-    assert!(first.iter().any(|b| shows(b, "Changes: ")));
-    let first = &first[..];
-    let (controlled, trigger) = props(first, "Controlled", AccessibilityRole::Combobox).unwrap();
-    assert_eq!(chosen(&trigger), None, "null: nothing chosen");
-    assert_eq!(trigger.accessibility.state.expanded, Some(false));
-    let (_, own) = props(first, "Own", AccessibilityRole::Combobox).unwrap();
-    assert_eq!(
-        chosen(&own).as_deref(),
-        Some("Rice"),
-        "its own, from defaultValue"
-    );
-
-    // The list, its rows drawn by the app.
-    engine
-        .control()
-        .dispatch_event(controlled, EventKind::Press, EventPayload::None);
-    let opened = until(&rx, |b| shows(b, "Apple!"));
-    assert!(opened.iter().any(|b| shows(b, "[Grains]")));
-    let (apple, _) = props(&opened, "Apple", AccessibilityRole::Option).expect("an option");
-    let (_, kale) = props(&opened, "Kale", AccessibilityRole::Option).expect("an option");
-    assert!(kale.accessibility.state.disabled);
-
-    // A choice: `onChange` with its value; the app's value follows.
-    engine
-        .control()
-        .dispatch_event(apple, EventKind::Press, EventPayload::None);
-    let chose = until(&rx, |b| {
-        props(
-            std::slice::from_ref(b),
-            "Controlled",
-            AccessibilityRole::Combobox,
-        )
-        .is_some_and(|(_, p)| chosen(&p).as_deref() == Some("Apple"))
-    });
-    assert!(chose.iter().any(|b| shows(b, "Changes: apple")));
-    let (_, trigger) = props(&chose, "Controlled", AccessibilityRole::Combobox).unwrap();
-    assert_eq!(chosen(&trigger).as_deref(), Some("Apple"));
-}
-
-const BASE_SELECT_DESKTOP: &str = r##"import { mount, Text, View } from "nsh";
-import { Select } from "nsh/base";
-
-const items = [
-  { value: "apple", title: "Apple" },
-  { value: "rice", title: "Rice" },
-];
-
-mount(() => (
-  <View style={{ paddingTop: 100, paddingLeft: 40 }}>
-    <Select
-      items={items}
-      defaultOpen
-      accessibilityLabel="Food"
-      trigger={
-        <View testID="trigger" style={{ width: 120, height: 30 }}>
-          <Text>Pick</Text>
-        </View>
-      }
-    />
-  </View>
-));
-"##;
-
-/// On a desktop, a TSX `Select`'s trigger is the app's element: the
-/// combobox, and what the popup is placed against and as wide as (not the
-/// slot's view, which the column stretches); open at first (`defaultOpen`),
-/// the popup shows its rows once the trigger is laid out.
-#[test]
-fn a_base_select_on_a_desktop_places_its_popup_at_the_apps_trigger() {
-    use nsh_core::AccessibilityRole;
-    let (_engine, rx) = start_in(
-        BASE_SELECT_DESKTOP,
-        Environment {
-            os: nsh_engine::Os::MacOs,
-            idiom: nsh_engine::Idiom::Desktop,
-            ..Environment::default()
-        },
-    );
-    let mut all = until(&rx, |b| shows(b, "Apple"));
-    all.extend(until(&rx, |_| false));
-    let trigger = test_view(&all, "trigger");
-    let role_of = |id: u32| {
-        all.iter()
-            .flat_map(|b| b.items.iter())
-            .filter_map(|i| match i {
-                MountItem::ViewProps { id: v, props } if *v == id => Some(props.accessibility.role),
-                _ => None,
-            })
-            .next_back()
-    };
-    assert_eq!(role_of(trigger), Some(AccessibilityRole::Combobox));
-    let list = all
-        .iter()
-        .flat_map(|b| b.items.iter())
-        .find_map(|i| match i {
-            MountItem::ViewProps { id, props }
-                if props.accessibility.role == AccessibilityRole::Listbox =>
-            {
-                Some(*id)
-            }
-            _ => None,
-        })
-        .expect("the list");
-    let popup = all
-        .iter()
-        .flat_map(|b| b.items.iter())
-        .find_map(|i| match i {
-            MountItem::Insert { parent, child, .. } if *child == list => Some(*parent),
-            _ => None,
-        })
-        .expect("the popup");
-    let frame = frame_of(&all, popup).expect("placed");
-    // Below the trigger (120 × 30 at 40, 100), at its start, as wide.
-    assert_eq!(
-        frame_of(&all, trigger).map(|f| f.size.width),
-        Some(px(120.0))
-    );
-    assert_eq!(frame.origin.x, px(40.0), "{frame:?}");
-    assert_eq!(frame.origin.y, px(130.0), "{frame:?}");
-    assert_eq!(frame.size.width, px(120.0), "{frame:?}");
-}
-
 const BASE_NUMBER_INPUT: &str = r##"import { mount, signal, Text, View } from "nsh";
 import { NumberInput } from "nsh/base";
 
@@ -3559,7 +3361,7 @@ function App() {
     <View>
       <NumberInput
         value={quantity()}
-        onChange={(next) => quantity.set(next)}
+        onChange={({ value }) => quantity.set(value)}
         min={0}
         max={10}
         step={0.5}
@@ -3702,7 +3504,7 @@ function App() {
         length={4}
         groups={2}
         value={code()}
-        onChange={(next) => code.set(next)}
+        onChange={({ value }) => code.set(value)}
         onComplete={({ value }) => completes.set([...completes(), value])}
         accessibilityLabel="Code"
         class="flex-row w-[200px] h-[40px]"
@@ -3886,7 +3688,7 @@ function App() {
         { title: "Stats", icon: "chart.bar" },
       ]}
       selectedIndex={selected()}
-      onChange={(index: number) => selected.set(index)}
+      onChange={({ index }: { index: number }) => selected.set(index)}
     />
   );
 }
@@ -3994,7 +3796,7 @@ const selected = signal<number | undefined>(0);
 const items = signal([{ title: "Records" }, { title: "Stats" }]);
 mount(() => <View>
   <TabBar items={items()} selectedIndex={selected()}
-    onChange={(index) => {
+    onChange={({ index }) => {
       selected.set(index);
       items.set([{ title: "Records" }, { title: "Statistics" }]);
     }} />
@@ -4076,7 +3878,7 @@ function App() {
         accessibilityLabel="Price"
         class="w-[200px] h-[100px] stroke-[#ff0000]"
         style={{ color: "#0000ff" }}
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
       >
         <Grid y={[0, 20, 40]} class="stroke-[#00ff00]" style={{ strokeDasharray: "2 2" }} />
         <Area class="fill-[#0000ff]/50" curve="linear" />
@@ -4561,7 +4363,7 @@ function App() {
         crossLineClass="w-px bg-[#999999]"
         dotClass="size-2 rounded-full bg-[#3366ff]"
         tooltipContent={<Text>tip</Text>}
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
         style={{ width: 200, height: 100 }}
       >
         <Line dot dotClass="size-1" />
@@ -4710,7 +4512,7 @@ function App() {
         tooltipContent={<View testID="tip" style={{ width: 60, height: 20 }} />}
         tooltipPlacement={placement()}
         tooltipOffset={8}
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
         style={{ width: 200, height: 100 }}
       >
         <Area curve="linear" backgroundClass="bg-linear-to-b from-[#ff0000] to-transparent" hoverDotClass="hidden" />
@@ -4928,7 +4730,7 @@ function App() {
         testID="plot"
         data={rows}
         accessibilityLabel="Shares"
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
         style={{ width: 200, height: 100 }}
       >
         <Arc innerRadius="50%" class="fill-[#999999]" />
@@ -5184,7 +4986,7 @@ function App() {
         y="v"
         appearGeneration={1}
         motion={{ appear: { duration: 300 }, enter: { duration: 120 }, pointer: { stiffness: 300, damping: 30 } }}
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
         style={{ width: 100, height: 100 }}
       >
         <Pie hoverLift={4} />
@@ -5599,7 +5401,7 @@ function App() {
         xScale={{ type: "band", paddingInner: 0.25, paddingOuter: 0.125 }}
         yScale={{ type: "linear", domain: [-20, 60] }}
         crossLineClass="w-full bg-[#eeeeee]"
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
         style={{ width: 300, height: 80 }}
       >
         <Bar value="a" class="fill-[#ff0000]" cornerRadii={{ topLeft: 2, topRight: 2 }} inactiveOpacity={0.4} label="a" />
@@ -5796,7 +5598,7 @@ function App() {
         xScale={{ type: "band" }}
         appearGeneration={1}
         motion={{ appear: { duration: 300, easing: "easeOut" }, enter: { duration: 120 }, pointer: { stiffness: 300, damping: 30 } }}
-        onHoverChange={(index) => hovered.set(index)}
+        onHoverChange={({ index }) => hovered.set(index)}
         style={{ width: 300, height: 100 }}
       >
         <Bar stagger={0.5} inactiveOpacity={0.3} label="v" />

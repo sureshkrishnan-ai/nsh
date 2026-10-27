@@ -39,9 +39,10 @@ test("the list buttons change every level of a nested list, and take it out", as
   await app.press("role:button[Numbered list]");
   await app.waitFor("text:•", { state: "gone" });
   // The outer list and the nested one are numbered, beside the document's
-  // other numbered list.
+  // other numbered list: a nested level counts with letters.
   expect(app.count("text:◦")).toBe(0);
-  expect(app.count("text:1.")).toBe(3);
+  expect(app.count("text:1.")).toBe(2);
+  expect(app.count("text:a.")).toBe(1);
   await app.press("role:button[Bulleted list]");
   await app.waitFor("text:◦");
   expect(app.count("text:•")).toBe(2);

@@ -35,7 +35,7 @@ export function Segmented<T extends string>(props: {
   });
   return (
     <Tabs
-      onLayout={(e) => width.set(e.size.width)}
+      onLayout={(e) => width.set(e.bounds.size.width)}
       style={{
         height,
         flexDirection: "row",

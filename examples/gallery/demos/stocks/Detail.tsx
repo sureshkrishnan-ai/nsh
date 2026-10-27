@@ -43,7 +43,7 @@ function DayRange(props: { stock: Stock }) {
       <Text style={{ fontSize: 12, color: colors.muted, fontVariant: ["tabular-nums"] }}>L {p(q().low)}</Text>
       <View
         onLayout={(e) => {
-          width = e.size.width;
+          width = e.bounds.size.width;
           place();
         }}
         accessibilityLabel={`Day range ${p(q().low)} to ${p(q().high)}`}
@@ -366,7 +366,7 @@ export function StockView(props: { market: Market; stock: Stock; wide?: boolean;
           </Sheet>
         }
       >
-        <Dialog open={ticket()} presentation="formSheet" onOpenChange={(open) => ticket.set(open)} style={{ flex: 1 }}>
+        <Dialog open={ticket()} presentation="formSheet" onOpenChange={({ open }) => ticket.set(open)} style={{ flex: 1 }}>
           <View style={{ flex: 1, padding: 20, backgroundColor: colors.surface }}>{ticketView}</View>
         </Dialog>
       </If>
